@@ -33,8 +33,12 @@ services:
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt/live/jeecomit.sbs/fullchain.pem:/etc/letsencrypt/live/jeecomit.sbs/fullchain.pem:ro
+      - /etc/letsencrypt/live/jeecomit.sbs/privkey.pem:/etc/letsencrypt/live/jeecomit.sbs/privkey.pem:ro
+      - /etc/letsencrypt/archive:/etc/letsencrypt/archive:ro
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - backend
     networks:
