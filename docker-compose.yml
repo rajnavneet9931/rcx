@@ -1,0 +1,48 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: jeecom-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - jeecom-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jeecom-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/it_company_db
+    depends_on:
+      - mongodb
+    networks:
+      - jeecom-network
+
+  frontend:
+    image: nginx:alpine
+    container_name: jeecom-frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - jeecom-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  jeecom-network:
+    driver: bridge

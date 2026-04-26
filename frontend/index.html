@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jeecom Information Technology</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Razorpay Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <!-- Google Identity Services (for Google Sign-In) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<!-- ─── Splash Screen ───────────────────────────────────────────────────── -->
+<div id="splashScreen">
+  <div class="splash-content">
+    <img src="jeecom img.png" alt="Jeecom Information Technology Logo" class="splash-logo" />
+    <div class="splash-tagline">Powering Your Tech World</div>
+  </div>
+  <div class="splash-bar"></div>
+</div>
+
+<style>
+  #splashScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: linear-gradient(135deg, #0a0e2a 0%, #0d1b4b 50%, #0a1a3a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  #splashScreen.hide {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: splashFadeIn 0.8s ease forwards;
+  }
+  @keyframes splashFadeIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0)   scale(1);   }
+  }
+  .splash-logo {
+    width: min(340px, 70vw);
+    filter: drop-shadow(0 0 40px rgba(30, 100, 255, 0.5));
+    animation: logoPulse 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes logoPulse {
+    from { filter: drop-shadow(0 0 30px rgba(30, 100, 255, 0.4)); }
+    to   { filter: drop-shadow(0 0 60px rgba(30, 144, 255, 0.8)); }
+  }
+  .splash-tagline {
+    margin-top: 14px;
+    color: rgba(150, 190, 255, 0.85);
+    font-family: 'Segoe UI', sans-serif;
+    font-size: clamp(13px, 2.5vw, 17px);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    animation: splashFadeIn 1s ease 0.4s both;
+  }
+  /* Progress bar at the bottom */
+  .splash-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    width: 0%;
+    background: linear-gradient(90deg, #1e64ff, #00c6ff);
+    border-radius: 0 4px 4px 0;
+    animation: splashProgress 2.8s linear forwards;
+  }
+  @keyframes splashProgress {
+    from { width: 0%; }
+    to   { width: 100%; }
+  }
+</style>
+
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    setTimeout(function () {
+      document.getElementById('splashScreen').classList.add('hide');
+    }, 3000);
+  });
+</script>
+
+<!-- ─── Navigation ─────────────────────────────────────────────────────── -->
+<nav class="navbar">
+  <div class="nav-inner">
+    <div class="nav-logo" onclick="showPage('home')" style="cursor:pointer">
+      <div class="nav-logo-icon">⚡</div>
+      Jeecom<span> IT</span>
+    </div>
+    <div class="nav-links">
+      <a class="nav-link active" onclick="showPage('home')" data-page="home">Home</a>
+      <a class="nav-link" onclick="showPage('products')" data-page="products">Products</a>
+      <a class="nav-link" onclick="showPage('services')" data-page="services">Services</a>
+      <a class="nav-link" onclick="showPage('track')" data-page="track">Track Order</a>
+    </div>
+    <div class="nav-actions">
+      <button class="cart-btn" onclick="toggleCart()">
+        🛒 Cart
+        <span class="cart-count hidden" id="cartCount">0</span>
+      </button>
+      <button class="user-nav-btn" id="userNavBtn" onclick="handleUserNavClick()" title="Login / My Account">
+        <span id="userNavIcon">👤</span>
+        <span id="userNavLabel">Login</span>
+      </button>
+
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Toast Container ─────────────────────────────────────────────────── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ─── Cart Sidebar Overlay ────────────────────────────────────────────── -->
+<div class="cart-sidebar-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+
+<!-- ─── Cart Sidebar ─────────────────────────────────────────────────────── -->
+<div class="cart-sidebar" id="cartSidebar">
+  <div class="cart-header">
+    <h2 class="cart-title">🛒 Your Cart</h2>
+    <button class="modal-close" onclick="toggleCart()" style="background:rgba(255,255,255,0.15);border:none;color:#fff">✕</button>
+  </div>
+  <div class="cart-items" id="cartItems">
+    <div class="empty-state">
+      <div class="empty-state-icon">🛒</div>
+      <h3>Cart is empty</h3>
+      <p>Browse products and add items to your cart</p>
+    </div>
+  </div>
+  <div class="cart-footer" id="cartFooter" style="display:none">
+    <div class="cart-total">
+      <span class="cart-total-label">Total Amount</span>
+      <span class="cart-total-val" id="cartTotal">₹0</span>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="proceedToCheckout()">Proceed to Checkout →</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE: HOME                                                              -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+  <section class="hero">
+    <div class="container">
+      <div class="hero-tag">⚡ Premier IT Solutions Provider</div>
+      <h1 class="hero-title">
+        Your One-Stop<br><span class="highlight">Tech Hub</span> for<br>Hardware & Services
+      </h1>
+      <p class="hero-subtitle">
+        Shop premium laptops, components, and accessories. Get expert repair, maintenance, and exchange services — all under one roof.
+      </p>
+      <div class="hero-cta">
+        <button class="btn btn-lg" style="background:var(--gold);color:#fff;border-color:var(--gold)" onclick="showPage('products')">Browse Products →</button>
+        <button class="btn btn-lg" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);color:#fff" onclick="showPage('services')">Our Services</button>
+      </div>
+      <div class="hero-stats">
+        <div><div class="hero-stat-val" id="heroProducts">—</div><div class="hero-stat-label">Products Available</div></div>
+        <div><div class="hero-stat-val">5+</div><div class="hero-stat-label">Service Types</div></div>
+        <div><div class="hero-stat-val">24hr</div><div class="hero-stat-label">Turnaround Time</div></div>
+        <div><div class="hero-stat-val">100%</div><div class="hero-stat-label">Genuine Parts</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:3rem 0">
+    <div class="container">
+      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+        <div><h2 class="section-title">Featured Products</h2><div class="section-line"></div></div>
+        <button class="btn btn-secondary" onclick="showPage('products')">View All →</button>
+      </div>
+      <div class="products-grid" id="featuredProducts">
+        <div class="loader"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding:3rem 0;background:#f0ede8;border-top:1px solid #e2ddd6;border-bottom:1px solid #e2ddd6">
+    <div class="container">
+      <div class="section-header" style="text-align:center">
+        <h2 class="section-title">Our Services</h2>
+        <p class="section-subtitle">Professional IT services with quick turnaround</p>
+        <div class="section-line" style="margin:0.75rem auto 0"></div>
+      </div>
+      <div class="services-grid" style="margin-top:2rem">
+        <div class="service-card" onclick="showPage('services')">
+          <div class="service-icon" style="background:rgba(26,58,92,0.07);color:var(--accent)">🔧</div>
+          <div class="service-name">Repair Services</div>
+          <div class="service-desc">Expert diagnosis and repair for laptops, desktops, and all peripherals.</div>
+          <div class="service-price">Starting from ₹500</div>
+        </div>
+        <div class="service-card" onclick="showPage('services')">
+          <div class="service-icon" style="background:var(--green-dim);color:var(--green)">🔄</div>
+          <div class="service-name">Exchange Program</div>
+          <div class="service-desc">Trade in your old device for credit towards new purchases.</div>
+          <div class="service-price">Get up to ₹30,000 credit</div>
+        </div>
+        <div class="service-card" onclick="showPage('services')">
+          <div class="service-icon" style="background:var(--gold-dim);color:var(--gold)">🛡️</div>
+          <div class="service-name">Maintenance Plans</div>
+          <div class="service-desc">Annual maintenance contracts for businesses. Regular checkups and optimization.</div>
+          <div class="service-price">From ₹2,000/year per device</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE: PRODUCTS                                                          -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-products">
+  <div class="container" style="padding-top:2rem;padding-bottom:3rem">
+    <div class="section-header">
+      <h2 class="section-title">Products</h2>
+      <p class="section-subtitle">Browse our complete catalog of IT hardware and accessories</p>
+      <div class="section-line"></div>
+    </div>
+    <div class="filter-bar" style="margin-top:1.5rem">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="form-input" id="productSearch" type="text" placeholder="Search products..." oninput="filterProducts()" />
+      </div>
+      <button class="filter-chip active" data-cat="All" onclick="setCategoryFilter('All',this)">All</button>
+      <button class="filter-chip" data-cat="Laptops" onclick="setCategoryFilter('Laptops',this)">Laptops</button>
+      <button class="filter-chip" data-cat="Motherboards" onclick="setCategoryFilter('Motherboards',this)">Motherboards</button>
+      <button class="filter-chip" data-cat="Accessories" onclick="setCategoryFilter('Accessories',this)">Accessories</button>
+      <button class="filter-chip" data-cat="Components" onclick="setCategoryFilter('Components',this)">Components</button>
+      <select class="form-select" style="max-width:160px" onchange="filterProducts()" id="sortSelect">
+        <option value="">Sort By</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="price_desc">Price: High to Low</option>
+        <option value="name">Name A-Z</option>
+      </select>
+    </div>
+    <div class="products-grid" id="productsGrid">
+      <div class="loader"><div class="spinner"></div></div>
+    </div>
+    <div class="pagination" id="productsPagination"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE: SERVICES                                                          -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-services">
+  <div class="container" style="padding-top:2rem;padding-bottom:3rem">
+    <div class="section-header">
+      <h2 class="section-title">Services</h2>
+      <p class="section-subtitle">Professional repair, exchange, and maintenance services</p>
+      <div class="section-line"></div>
+    </div>
+    <div class="services-grid">
+      <div class="service-card"><div class="service-icon" style="background:rgba(26,58,92,0.07);color:var(--accent)">🔧</div><div class="service-name">Laptop / Desktop Repair</div><div class="service-desc">Complete hardware and software repair. Screen replacement, keyboard fix, battery replacement.</div><div class="service-price">Starting from ₹500</div></div>
+      <div class="service-card"><div class="service-icon" style="background:var(--green-dim);color:var(--green)">🔄</div><div class="service-name">Device Exchange</div><div class="service-desc">Exchange your old laptop or desktop for a new one with fair valuation.</div><div class="service-price">Get up to ₹30,000 credit</div></div>
+      <div class="service-card"><div class="service-icon" style="background:var(--gold-dim);color:var(--gold)">🛡️</div><div class="service-name">Annual Maintenance</div><div class="service-desc">Scheduled maintenance, cleaning, hardware checkup, and performance tuning.</div><div class="service-price">From ₹2,000/year</div></div>
+      <div class="service-card"><div class="service-icon" style="background:var(--orange-dim);color:var(--orange)">⚙️</div><div class="service-name">Custom PC Build</div><div class="service-desc">Component installation, cable management, OS setup, and benchmarking.</div><div class="service-price">From ₹1,000</div></div>
+      <div class="service-card"><div class="service-icon" style="background:var(--purple-dim);color:var(--purple)">💡</div><div class="service-name">IT Consultation</div><div class="service-desc">Expert advice on hardware, network setup, and IT infrastructure planning.</div><div class="service-price">₹500/hour</div></div>
+    </div>
+
+    <div class="card" style="padding:2rem;margin-top:1rem;border-top:3px solid var(--gold)">
+      <div class="section-header"><h3 class="section-title" style="font-size:1.4rem">Submit a Service Request</h3><div class="section-line"></div></div>
+      <form id="serviceForm" onsubmit="submitServiceRequest(event)" style="margin-top:1.5rem">
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Your Name *</label><input class="form-input" name="customerName" type="text" placeholder="Full name" required /></div>
+          <div class="form-group"><label class="form-label">Email *</label><input class="form-input" name="customerEmail" type="email" placeholder="email@example.com" required /></div>
+          <div class="form-group"><label class="form-label">Phone Number *</label><input class="form-input" name="customerPhone" type="tel" placeholder="+91 98765 43210" required /></div>
+          <div class="form-group"><label class="form-label">Service Type *</label>
+            <select class="form-select" name="serviceType" required>
+              <option value="">Select service...</option>
+              <option value="Repair">Repair</option>
+              <option value="Exchange">Exchange</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Installation">Installation</option>
+              <option value="Consultation">Consultation</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Device Type</label><input class="form-input" name="deviceType" type="text" placeholder="e.g. Laptop, Desktop" /></div>
+          <div class="form-group"><label class="form-label">Brand & Model</label><input class="form-input" name="deviceBrand" type="text" placeholder="e.g. Dell XPS 15" /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Issue Description *</label><textarea class="form-textarea" name="issueDescription" placeholder="Describe the issue in detail..." style="min-height:120px" required></textarea></div>
+        <button type="submit" class="btn btn-primary">Submit Request →</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE: TRACK ORDER                                                       -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-track">
+  <div class="container" style="padding-top:3rem;padding-bottom:3rem;max-width:700px">
+    <div class="section-header">
+      <h2 class="section-title">Track Your Service</h2>
+      <p class="section-subtitle">Enter your ticket number to check the status of your service request</p>
+      <div class="section-line"></div>
+    </div>
+    <div class="card" style="padding:2rem;margin-top:2rem">
+      <div style="display:flex;gap:0.75rem">
+        <input class="form-input" id="trackInput" type="text" placeholder="Enter ticket number (e.g. SVC-1234567890-0001)" style="flex:1" />
+        <button class="btn btn-primary" onclick="trackTicket()">Track →</button>
+      </div>
+      <div id="trackResult" style="margin-top:1.5rem"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ─── Checkout Modal ───────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="checkoutModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Checkout</h3>
+      <button class="modal-close" onclick="closeCheckout()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="checkoutItems" style="margin-bottom:1.5rem"></div>
+      <div style="border-top:1px solid var(--border);padding-top:1rem;margin-bottom:1.5rem">
+        <div class="cart-total">
+          <span class="cart-total-label">Order Total</span>
+          <span class="cart-total-val" id="checkoutTotal">₹0</span>
+        </div>
+      </div>
+      <h4 style="font-family:var(--font-display);font-weight:600;margin-bottom:1rem">Customer Details</h4>
+      <form id="checkoutForm" onsubmit="placeOrder(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Full Name *</label>
+            <input class="form-input" id="coName" type="text" required placeholder="Your full name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input class="form-input" id="coPhone" type="tel" placeholder="+91 98765 43210" />
+          </div>
+        </div>
+
+        <!-- Email — pre-filled & verified from login session -->
+        <div class="form-group">
+          <label class="form-label">Email Address *</label>
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <input class="form-input" id="coEmail" type="email" required placeholder="you@example.com"
+              style="flex:1;background:var(--bg-elevated);color:var(--text-primary)" readonly />
+            <span style="background:var(--green-dim);color:var(--green);border:1px solid rgba(45,106,79,0.25);
+              border-radius:var(--radius-sm);padding:0.4rem 0.8rem;font-size:0.78rem;font-weight:700;white-space:nowrap">
+              ✅ Verified
+            </span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+            <select class="form-select" id="coPayment">
+              <option value="Razorpay">💳 Razorpay (Card / UPI / NetBanking / Wallet)</option>
+              <option value="Cash">🏠 Cash on Delivery</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Delivery Address</label>
+            <textarea class="form-textarea" id="coAddress" placeholder="Street, City, State, PIN" style="min-height:70px"></textarea>
+          </div>
+
+          <!-- GST Invoice Request -->
+          <div class="form-group" style="grid-column:1/-1">
+              <div style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1rem;
+                background:var(--bg-elevated);border:1px solid var(--border);
+                border-radius:var(--radius-sm);cursor:pointer">
+
+                <!-- ✅ FIXED CHECKBOX -->
+                <input type="checkbox" id="gstCheckbox"
+                  style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer"
+                  onchange="toggleGSTField()" />
+
+                <div>
+                  <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary)">
+                    🧾 I need a GST Invoice
+                  </div>
+                  <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:2px">
+                    Check this to receive a tax invoice with CGST/SGST breakdown
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          <!-- GSTIN Input -->
+          <div class="form-group" id="gstinField" style="grid-column:1/-1;display:none">
+            <label class="form-label">
+              Your GSTIN *
+              <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:0.75rem">— 15-digit GST number</span>
+            </label>
+            <input class="form-input" id="coGSTIN" type="text" placeholder="e.g. 03AABCT1332L1ZX"
+              maxlength="15" style="text-transform:uppercase;letter-spacing:0.05em"
+              oninput="this.value=this.value.toUpperCase()" />
+          </div>
+        </div>
+
+        <div class="modal-footer" style="padding:0;border:none">
+          <button type="button" class="btn btn-secondary" onclick="closeCheckout()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="placeOrderBtn">
+            Place Order →
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE: LOGIN                                                             -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-login">
+  <div style="min-height:80vh;display:flex;align-items:center;justify-content:center;padding:2rem;background:var(--bg-primary)">
+    <div style="width:100%;max-width:460px">
+      <div style="text-align:center;margin-bottom:2rem">
+        <div style="width:64px;height:64px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto 1rem;box-shadow:0 4px 20px rgba(26,58,92,0.3)">⚡</div>
+        <h2 style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--accent)">Welcome Back</h2>
+        <p style="color:var(--text-secondary);font-size:0.9rem;margin-top:0.5rem">Sign in to Jeecom Information Technology</p>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <!-- Tabs -->
+        <div style="display:flex;border-bottom:1px solid var(--border)">
+          <button id="tabEmailBtn" class="login-tab active" onclick="switchLoginTab('email')">📧 Email OTP</button>
+          <button id="tabGoogleBtn" class="login-tab" onclick="switchLoginTab('google')">🔑 Google</button>
+        </div>
+        <!-- Email OTP Tab -->
+        <div id="loginTabEmail" style="padding:2rem">
+          <div class="form-grid" style="margin-bottom:0">
+            <div class="form-group">
+              <label class="form-label">Full Name *</label>
+              <input class="form-input" id="loginNameInput" type="text" placeholder="Your full name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mobile Number *</label>
+              <input class="form-input" id="loginPhoneInput" type="tel" placeholder="+91 98765 43210" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <div style="display:flex;gap:0.6rem">
+              <input class="form-input" id="loginEmailInput" type="email" placeholder="you@example.com" style="flex:1" />
+              <button class="btn btn-primary" id="loginSendOtpBtn" onclick="loginSendOTP()" style="white-space:nowrap;flex-shrink:0">Send OTP</button>
+            </div>
+            <div id="loginOtpSendStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1rem"></div>
+          </div>
+          <div id="loginOtpRow" style="display:none">
+            <div class="form-group">
+              <label class="form-label">Enter 6-digit OTP</label>
+              <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+                <input class="form-input" id="loginOtpInput" type="text" inputmode="numeric" maxlength="6"
+                  placeholder="• • • • • •"
+                  style="max-width:170px;letter-spacing:0.3em;font-size:1.15rem;text-align:center;font-family:var(--font-display)"
+                  onkeydown="if(event.key==='Enter')loginVerifyOTP()" />
+                <button class="btn btn-success" onclick="loginVerifyOTP()">Verify & Sign In</button>
+              </div>
+              <div id="loginOtpVerifyStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1rem"></div>
+              <div id="loginOtpCountdown" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.25rem;min-height:1rem"></div>
+              <button id="loginResendBtn" style="display:none;margin-top:0.5rem" class="btn btn-secondary btn-sm" onclick="loginSendOTP(true)">Resend OTP</button>
+            </div>
+          </div>
+          <p style="font-size:0.8rem;color:var(--text-muted);text-align:center;margin-top:0.5rem">No account needed — we'll create one automatically ✨</p>
+        </div>
+        <!-- Google Tab -->
+        <div id="loginTabGoogle" style="padding:2rem;display:none">
+          <p style="color:var(--text-secondary);font-size:0.88rem;text-align:center;margin-bottom:1.5rem;line-height:1.6">Sign in instantly with your Google account. No password required.</p>
+          <div style="display:flex;justify-content:center">
+            <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID_HERE" data-callback="handleGoogleCredential" data-auto_prompt="false"></div>
+            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left" data-width="360"></div>
+          </div>
+          <div id="googleLoginStatus" style="font-size:0.85rem;text-align:center;margin-top:1rem;min-height:1.2rem"></div>
+        </div>
+      </div>
+      <p style="text-align:center;margin-top:1.25rem;font-size:0.85rem;color:var(--text-muted)">
+        <a href="#" onclick="showPage('home')" style="color:var(--accent);font-weight:600">← Back to Home</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Product Detail Modal ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 class="modal-title" id="productModalTitle">Product Details</h3>
+      <button class="modal-close" onclick="closeProductModal()">✕</button>
+    </div>
+    <div class="modal-body" id="productModalBody"></div>
+  </div>
+</div>
+
+<!-- ─── Edit Stock Modal ─────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="stockModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h3 class="modal-title">Update Stock</h3>
+      <button class="modal-close" onclick="closeModal('stockModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:1rem" id="stockProductName"></p>
+      <div class="form-group">
+        <label class="form-label">New Quantity</label>
+        <input class="form-input" id="stockQtyInput" type="number" min="0" placeholder="Enter quantity" />
+      </div>
+      <input type="hidden" id="stockProductId" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('stockModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmStockUpdate()">Update Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Order Detail Modal ───────────────────────────────────────────────── -->
+<div class="modal-overlay" id="orderDetailModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 class="modal-title">Order Details</h3>
+      <button class="modal-close" onclick="closeModal('orderDetailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="orderDetailBody"></div>
+  </div>
+</div>
+
+<!-- ─── Footer ───────────────────────────────────────────────────────────── -->
+<footer style="background:var(--accent);color:rgba(255,255,255,0.7);padding:3rem 0 1.5rem">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:3rem;margin-bottom:2.5rem;flex-wrap:wrap">
+      <div>
+        <div style="font-family:var(--font-display);font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:0.75rem">Jeecom<span style="color:var(--gold-light)"> IT</span></div>
+        <p style="font-size:0.85rem;line-height:1.7;max-width:260px">Premier IT solutions provider offering quality hardware products and professional services. Serving Gurugram and beyond.</p>
+        <div style="margin-top:1rem;font-size:0.82rem;line-height:1.9">
+          <div>📍 Sector 4, Urban Estate, Gurugram, Haryana 122001</div>
+          <div>📞 +91 8789552086</div>
+          <div>✉️ jeecominformationtechnology@gmail.com</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold-light);margin-bottom:1rem">Products</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.85rem">
+          <a onclick="showPage('products')" style="cursor:pointer">Laptops</a>
+          <a onclick="showPage('products')" style="cursor:pointer">Motherboards</a>
+          <a onclick="showPage('products')" style="cursor:pointer">Accessories</a>
+          <a onclick="showPage('products')" style="cursor:pointer">Components</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold-light);margin-bottom:1rem">Services</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.85rem">
+          <a onclick="showPage('services')" style="cursor:pointer">Repair</a>
+          <a onclick="showPage('services')" style="cursor:pointer">Exchange</a>
+          <a onclick="showPage('services')" style="cursor:pointer">Maintenance</a>
+          <a onclick="showPage('services')" style="cursor:pointer">Consultation</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold-light);margin-bottom:1rem">Support</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.85rem">
+          <a onclick="showPage('track')" style="cursor:pointer">Track Request</a>
+          <a style="cursor:pointer">Warranty Policy</a>
+          <a style="cursor:pointer">Return Policy</a>
+
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.12);padding-top:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;font-size:0.78rem">
+      <span>© 2025 Jeecom Information Technology. All rights reserved.</span>
+      <span>Made with ♥ in Gurugram, India</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
